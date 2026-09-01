@@ -29,8 +29,9 @@
             <a id="banner-settings-link">Add your Anthropic API key</a> to talk to a real AI tutor.
         </div>
         <div id="voice-banner" class="banner hidden">
-            No Swedish text-to-speech voice found in this browser, so replies will sound wrong.
-            On macOS: System Settings → Accessibility → Spoken Content → System voice → Manage voices → add a Swedish voice.
+            No Swedish text-to-speech voice found, so replies are read with a non-Swedish voice and will sound wrong.
+            On macOS: System Settings → Accessibility → Spoken Content → System voice → Manage Voices →
+            download a Swedish voice (pick Enhanced/Premium), then restart Chrome and select it in ⚙️ Settings.
         </div>
 
         <div id="conversation-flow">
@@ -75,6 +76,39 @@
                     <option value="advanced">Advanced</option>
                 </select>
             </label>
+            <label>
+                Swedish voice
+                <div class="voice-row">
+                    <select id="voice-select" style="flex:1"></select>
+                    <button id="test-voice-btn" class="btn-small" type="button">▶ Test</button>
+                </div>
+            </label>
+            <p class="hint">
+                Voices come from your OS/browser. For a much nicer voice on macOS:
+                System Settings → Accessibility → Spoken Content → System voice → Manage Voices →
+                Swedish → download an Enhanced/Premium voice, then pick it here.
+            </p>
+            <label>
+                Speech speed
+                <select id="rate-select">
+                    <option value="0.8">Slow (0.8×)</option>
+                    <option value="0.95">Normal (0.95×)</option>
+                    <option value="1.1">Fast (1.1×)</option>
+                </select>
+            </label>
+            <label>
+                ElevenLabs API key (optional — human-quality voice)
+                <input type="password" id="eleven-key-input" placeholder="leave empty to use the browser voice" autocomplete="off">
+            </label>
+            <label>
+                ElevenLabs voice ID
+                <input type="text" id="eleven-voice-input" placeholder="21m00Tcm4TlvDq8ikWAM" autocomplete="off">
+            </label>
+            <p class="hint">
+                Near-human speech. Free tier at elevenlabs.io (~10k characters/month).
+                Browse their Voice Library for a native Swedish voice and paste its ID here.
+                Falls back to the browser voice if the call fails.
+            </p>
             <div class="settings-actions">
                 <button id="reset-chat-btn" class="btn-small">🗑 Reset conversation</button>
                 <button id="save-settings-btn" class="save-btn">Save</button>

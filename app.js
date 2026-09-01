@@ -18,12 +18,17 @@ const STATE = {
 };
 
 const SETTINGS_KEY = 'svenskatutor_settings';
-const DEFAULT_SETTINGS = { apiKey: '', model: 'claude-opus-5', level: 'beginner' };
+const DEFAULT_SETTINGS = {
+    apiKey: '', model: 'claude-opus-5', level: 'beginner',
+    voiceURI: '', rate: 0.95,
+    // Optional human-quality TTS via ElevenLabs; falls back to browser TTS.
+    elevenKey: '', elevenVoiceId: '21m00Tcm4TlvDq8ikWAM'
+};
 
 let currentState = STATE.IDLE;
 let recognition = null;
 const synth = window.speechSynthesis;
-let swedishVoice = null;
+let swedishVoices = [];      // all sv-* voices, best first
 
 let settings = loadSettings();
 let client = null;
@@ -142,12 +147,55 @@ function init() {
     if (!settings.apiKey) openSettings();
 }
 
+// Quality heuristic: OS "enhanced/premium/natural" voices and Google's
+// network voices sound far better than the default "compact" ones.
+function voiceScore(v) {
+    const n = v.name.toLowerCase();
+    let s = 0;
+    if (v.lang === 'sv-SE') s += 4;
+    if (/premium|enhanced|natural|neural/.test(n)) s += 3;
+    if (/google/.test(n)) s += 2;
+    if (!v.localService) s += 1;
+    if (/compact/.test(n)) s -= 2;
+    return s;
+}
+
 function loadVoices() {
     const voices = synth.getVoices();
-    swedishVoice = voices.find(v => v.lang.startsWith('sv')) || null;
+    swedishVoices = voices
+        .filter(v => v.lang.toLowerCase().startsWith('sv'))
+        .sort((a, b) => voiceScore(b) - voiceScore(a));
     if (voices.length > 0) {
-        document.getElementById('voice-banner').classList.toggle('hidden', !!swedishVoice);
+        document.getElementById('voice-banner').classList.toggle('hidden', swedishVoices.length > 0);
     }
+    populateVoiceSelect();
+}
+
+function pickSwedishVoice() {
+    if (settings.voiceURI) {
+        const chosen = swedishVoices.find(v => v.voiceURI === settings.voiceURI);
+        if (chosen) return chosen;
+    }
+    return swedishVoices[0] || null;
+}
+
+function populateVoiceSelect() {
+    const select = document.getElementById('voice-select');
+    if (!select) return;
+    select.replaceChildren();
+    if (swedishVoices.length === 0) {
+        select.appendChild(new Option('No Swedish voice found in this browser', ''));
+        select.disabled = true;
+        return;
+    }
+    select.disabled = false;
+    select.appendChild(new Option('Auto (best available)', ''));
+    for (const v of swedishVoices) {
+        select.appendChild(new Option(`${v.name} (${v.lang})`, v.voiceURI));
+    }
+    select.value = settings.voiceURI && swedishVoices.some(v => v.voiceURI === settings.voiceURI)
+        ? settings.voiceURI
+        : '';
 }
 
 function setupSpeechRecognition() {
@@ -411,13 +459,65 @@ function addCorrectionCard(correction) {
 }
 
 // --- Audio Actions ---
-function speakText(text, lang) {
+let currentAudio = null;          // premium-TTS playback in progress
+const ttsCache = new Map();       // text -> object URL, so replays aren't re-billed
+
+function stopSpeaking() {
     synth.cancel();
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+    }
+    if (currentState === STATE.SPEAKING) updateState(STATE.IDLE);
+}
+
+async function speakText(text, lang) {
+    stopSpeaking();
     updateState(STATE.SPEAKING);
 
+    if (settings.elevenKey) {
+        try {
+            await speakWithElevenLabs(text);
+            return;
+        } catch (err) {
+            console.error('ElevenLabs TTS failed, falling back to browser voice', err);
+        }
+    }
+    speakWithBrowser(text, lang);
+}
+
+async function speakWithElevenLabs(text) {
+    let url = ttsCache.get(text);
+    if (!url) {
+        const resp = await fetch(
+            `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(settings.elevenVoiceId)}`,
+            {
+                method: 'POST',
+                headers: { 'xi-api-key': settings.elevenKey, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, model_id: 'eleven_multilingual_v2' })
+            }
+        );
+        if (!resp.ok) throw new Error(`ElevenLabs ${resp.status}`);
+        url = URL.createObjectURL(await resp.blob());
+        ttsCache.set(text, url);
+    }
+    const audio = new Audio(url);
+    audio.playbackRate = settings.rate || 0.95;
+    currentAudio = audio;
+    audio.onended = audio.onerror = () => {
+        if (currentAudio === audio && currentState === STATE.SPEAKING) updateState(STATE.IDLE);
+    };
+    await audio.play();
+}
+
+function speakWithBrowser(text, lang) {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang === 'sv' ? 'sv-SE' : 'en-US';
-    if (lang === 'sv' && swedishVoice) utterance.voice = swedishVoice;
+    if (lang === 'sv') {
+        const voice = pickSwedishVoice();
+        if (voice) utterance.voice = voice;
+        utterance.rate = settings.rate || 0.95;
+    }
 
     // Only fall back to IDLE if nothing else (e.g. listening) took over.
     utterance.onend = utterance.onerror = () => {
@@ -461,8 +561,7 @@ function startListening() {
     if (currentState === STATE.PROCESSING) return;
 
     // Never listen while the bot is talking — the mic would hear it.
-    synth.cancel();
-    if (currentState === STATE.SPEAKING) updateState(STATE.IDLE);
+    stopSpeaking();
 
     attachAudioTarget = null;
     startRecorder().finally(() => {
@@ -475,6 +574,10 @@ function openSettings() {
     document.getElementById('api-key-input').value = settings.apiKey;
     document.getElementById('model-select').value = settings.model;
     document.getElementById('level-select').value = settings.level;
+    document.getElementById('rate-select').value = String(settings.rate);
+    document.getElementById('eleven-key-input').value = settings.elevenKey;
+    document.getElementById('eleven-voice-input').value = settings.elevenVoiceId;
+    populateVoiceSelect();
     document.getElementById('settings-overlay').classList.remove('hidden');
 }
 
@@ -495,12 +598,33 @@ function wireUi() {
         settings.apiKey = document.getElementById('api-key-input').value.trim();
         settings.model = document.getElementById('model-select').value;
         settings.level = document.getElementById('level-select').value;
+        settings.voiceURI = document.getElementById('voice-select').value;
+        settings.rate = parseFloat(document.getElementById('rate-select').value) || 0.95;
+        settings.elevenKey = document.getElementById('eleven-key-input').value.trim();
+        settings.elevenVoiceId = document.getElementById('eleven-voice-input').value.trim()
+            || DEFAULT_SETTINGS.elevenVoiceId;
+        ttsCache.clear();
         saveSettings();
         initClient();
         closeSettings();
         addSystemNote(client
             ? `Settings saved — chatting with ${settings.model} (${settings.level}).`
             : 'Settings saved — no API key, running in demo mode.');
+    });
+
+    // Preview the currently selected voice & speed without saving.
+    document.getElementById('test-voice-btn').addEventListener('click', async () => {
+        const saved = { ...settings };
+        settings.voiceURI = document.getElementById('voice-select').value;
+        settings.rate = parseFloat(document.getElementById('rate-select').value) || 0.95;
+        settings.elevenKey = document.getElementById('eleven-key-input').value.trim();
+        settings.elevenVoiceId = document.getElementById('eleven-voice-input').value.trim()
+            || DEFAULT_SETTINGS.elevenVoiceId;
+        try {
+            await speakText('Hej! Jag heter Svea. Vad roligt att träffas!', 'sv');
+        } finally {
+            Object.assign(settings, saved);
+        }
     });
 
     document.getElementById('reset-chat-btn').addEventListener('click', () => {

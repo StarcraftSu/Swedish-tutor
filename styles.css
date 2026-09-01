@@ -293,6 +293,12 @@ header {
     font-family: inherit;
 }
 
+.voice-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
 .hint {
     margin: -0.5rem 0 0;
     font-size: 0.8rem;

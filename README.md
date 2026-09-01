@@ -31,6 +31,13 @@ Without a key the app falls back to a canned demo bot.
 | Claude Sonnet 5 | Balanced |
 | Claude Haiku 4.5 | Fastest, cheapest |
 
+## Voice quality
+
+Replies are spoken with your OS/browser voice by default. Two upgrades, in order of effort:
+
+1. **Better system voice (free):** on macOS install an Enhanced/Premium Swedish voice (System Settings → Accessibility → Spoken Content → System voice → Manage Voices → Swedish), restart Chrome, then pick it in ⚙️ Settings. There's also a speech-speed setting.
+2. **Human-quality voice (ElevenLabs):** paste an ElevenLabs API key in ⚙️ Settings (free tier ~10k chars/month at elevenlabs.io). Optionally pick a native Swedish voice from their Voice Library and paste its voice ID. Falls back to the browser voice automatically if a call fails; repeated playback of the same line is cached and not re-billed.
+
 ## Features
 
 - Spoken conversation adapted to your level (beginner / intermediate / advanced)
