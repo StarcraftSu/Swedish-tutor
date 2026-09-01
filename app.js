@@ -103,6 +103,79 @@ const TUTOR_OUTPUT_FORMAT = {
     }
 };
 
+// --- Cost tracking ---
+// USD per million tokens; cache writes bill at 1.25x input, cache reads at 0.1x.
+const PRICING = {
+    'claude-opus-5': { in: 5, out: 25 },
+    'claude-sonnet-5': { in: 2, out: 10 },
+    'claude-haiku-4-5': { in: 1, out: 5 }
+};
+const USAGE_KEY = 'svenskatutor_usage';
+
+let sessionUsage = { cost: 0, inTok: 0, outTok: 0, turns: 0 };
+let allTimeUsage = loadAllTimeUsage();
+
+function loadAllTimeUsage() {
+    try {
+        const u = JSON.parse(localStorage.getItem(USAGE_KEY) || 'null');
+        if (u && typeof u.cost === 'number') return u;
+    } catch { /* fall through */ }
+    return { cost: 0, inTok: 0, outTok: 0, turns: 0, since: new Date().toISOString().slice(0, 10) };
+}
+
+function recordUsage(response) {
+    const u = response.usage;
+    if (!u) return;
+    const price = PRICING[response.model] || PRICING[settings.model] || PRICING['claude-opus-5'];
+    const inTok = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+    const outTok = u.output_tokens || 0;
+    const cost = (
+        (u.input_tokens || 0) * price.in +
+        (u.cache_creation_input_tokens || 0) * price.in * 1.25 +
+        (u.cache_read_input_tokens || 0) * price.in * 0.1 +
+        outTok * price.out
+    ) / 1e6;
+
+    sessionUsage.cost += cost;
+    sessionUsage.inTok += inTok;
+    sessionUsage.outTok += outTok;
+    sessionUsage.turns += 1;
+
+    allTimeUsage.cost += cost;
+    allTimeUsage.inTok += inTok;
+    allTimeUsage.outTok += outTok;
+    allTimeUsage.turns += 1;
+    try { localStorage.setItem(USAGE_KEY, JSON.stringify(allTimeUsage)); } catch { /* ok */ }
+
+    updateCostChip();
+}
+
+function fmtCost(c) {
+    return '$' + (c < 0.1 ? c.toFixed(3) : c.toFixed(2));
+}
+
+function updateCostChip() {
+    const chip = document.getElementById('cost-chip');
+    chip.textContent = fmtCost(sessionUsage.cost);
+    chip.classList.toggle('hidden', sessionUsage.turns === 0);
+}
+
+function showCostDetails() {
+    const note = el('div', 'system-note',
+        `This session: ${fmtCost(sessionUsage.cost)} — ${sessionUsage.turns} turns, ` +
+        `${sessionUsage.inTok.toLocaleString()} tokens in / ${sessionUsage.outTok.toLocaleString()} out. ` +
+        `All time on this browser: ${fmtCost(allTimeUsage.cost)} since ${allTimeUsage.since} ` +
+        `(${allTimeUsage.turns} turns).`);
+    const resetBtn = smallButton('Reset all-time counter', () => {
+        allTimeUsage = { cost: 0, inTok: 0, outTok: 0, turns: 0, since: new Date().toISOString().slice(0, 10) };
+        try { localStorage.setItem(USAGE_KEY, JSON.stringify(allTimeUsage)); } catch { /* ok */ }
+        resetBtn.disabled = true;
+    });
+    resetBtn.style.margin = '0.4rem auto 0';
+    note.appendChild(resetBtn);
+    appendToFlow(note);
+}
+
 // Canned fallback so the page still demos without an API key.
 const DEMO_BOT = {
     greetings: {
@@ -431,6 +504,8 @@ async function askTutor(userText, alts = []) {
         history.pop();
         throw err;
     }
+
+    recordUsage(response);
 
     if (response.stop_reason === "refusal") {
         history.pop();
@@ -835,6 +910,7 @@ function wireUi() {
         if (e.key === 'Enter') sendTyped();
     });
     document.getElementById('settings-btn').addEventListener('click', openSettings);
+    document.getElementById('cost-chip').addEventListener('click', showCostDetails);
     document.getElementById('banner-settings-link').addEventListener('click', openSettings);
 
     document.getElementById('settings-overlay').addEventListener('click', (e) => {

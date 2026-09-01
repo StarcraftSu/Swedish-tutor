@@ -66,6 +66,20 @@ header {
     100% { opacity: 1; }
 }
 
+.cost-chip {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    border-radius: 20px;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+
+.cost-chip:hover { background: #dcfce7; }
+
 .icon-btn {
     background: white;
     border: 1px solid var(--border);

@@ -47,6 +47,7 @@ Replies are spoken with your OS/browser voice by default. Two upgrades, in order
 - Grammar correction cards — the model flags at most one real error per turn, with the natural phrasing and a one-line explanation
 - Replay of your **actual recording** (MediaRecorder), plus TTS playback of every bot line
 - Swedish TTS voice detection — warns if your OS has no Swedish voice installed
+- Live cost counter in the header: exact API spend this session (from the API's own token usage, including cache discounts); click it for token details and the all-time total on this browser, with a reset
 
 ## Notes
 
