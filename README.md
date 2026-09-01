@@ -43,6 +43,7 @@ Replies are spoken with your OS/browser voice by default. Two upgrades, in order
 - Spoken conversation adapted to your level (beginner / intermediate / advanced)
 - Bilingual replies: Swedish on top, English translation underneath — tap any Swedish word to see (and hear) its English meaning in context
 - Thinking-pause control: your sentence is only sent after a configurable silence (default 3s, or "only when I press Stop"), with a live transcript while you speak — pausing mid-sentence won't cut you off
+- Accent-tolerant: the recognizer's alternative hearings are passed to the tutor, which is instructed to work out what you meant rather than react to garbled text; a ⌨️ keyboard fallback lets you type when speech fails
 - Grammar correction cards — the model flags at most one real error per turn, with the natural phrasing and a one-line explanation
 - Replay of your **actual recording** (MediaRecorder), plus TTS playback of every bot line
 - Swedish TTS voice detection — warns if your OS has no Swedish voice installed

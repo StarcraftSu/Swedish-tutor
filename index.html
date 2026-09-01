@@ -39,10 +39,17 @@
         </div>
 
         <div class="footer-controls">
-            <button id="voice-trigger" class="main-btn btn-start">
-                <div class="mic-indicator"></div>
-                <span id="trigger-text">Start speaking</span>
-            </button>
+            <div class="mic-row">
+                <button id="voice-trigger" class="main-btn btn-start">
+                    <div class="mic-indicator"></div>
+                    <span id="trigger-text">Start speaking</span>
+                </button>
+                <button id="type-toggle" class="icon-btn" title="Type instead of speaking">⌨️</button>
+            </div>
+            <div id="type-row" class="type-row hidden">
+                <input id="type-input" type="text" placeholder="Skriv på svenska..." autocomplete="off">
+                <button id="type-send" class="save-btn">Send</button>
+            </div>
             <div id="processing-text" class="hidden" style="color: var(--text-muted); font-size: 0.9rem; font-style: italic;">
                 Thinking about your answer...
             </div>

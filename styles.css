@@ -352,6 +352,27 @@ header {
     align-items: stretch;
 }
 
+.mic-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.type-row {
+    display: flex;
+    gap: 0.5rem;
+    width: min(480px, 90vw);
+}
+
+.type-row input {
+    flex: 1;
+    font-size: 0.95rem;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+}
+
 .hint {
     margin: -0.5rem 0 0;
     font-size: 0.8rem;

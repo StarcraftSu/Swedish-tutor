@@ -57,7 +57,7 @@ Rules:
 - "words" glosses reply_sv word by word, in order, covering the whole reply: each entry is {sv, en} where sv is the word as written in reply_sv (keep punctuation off) and en is its contextual English meaning. Keep multi-word fixed expressions (e.g. "vad kul", "ska vi") as a single entry when they translate as a unit.
 - Be a conversation partner, not a lecturer: react to what they said and usually end with one simple follow-up question.
 - Vary topics naturally (weather, food, family, work, hobbies, weekend plans...). If the conversation stalls, suggest a new topic.
-- The transcript may contain speech-recognition mistakes. Interpret charitably, never scold, and do not correct things that are probably transcription artifacts rather than the learner's own error.
+- The learner is practicing pronunciation, so the recognizer often garbles what they say. A bracketed note like [speech recognition also heard: ...] lists alternative hearings — use the transcript AND the alternatives to work out the sentence they most plausibly INTENDED, and respond to that meaning. If a fragment still makes no sense, don't interrupt the flow for it; if the whole utterance is unintelligible, ask what they meant in very simple Swedish (e.g. "Förlåt, menade du ...?" with your best guess). Never scold, and never treat a probable mis-hearing as the learner's grammar error.
 - If the learner's Swedish contains a real grammar or word-choice error worth learning from, fill in "correction": original = their exact words (a short fragment), corrected = the natural way to say it, explanation = one short English sentence on why. Otherwise "correction" must be null. At most one correction per turn - pick the most instructive, skip trivial ones.`;
 }
 
@@ -243,6 +243,8 @@ function populateVoiceSelect() {
 // the first thinking-pause, so we accumulate results ourselves and only send
 // after `settings.pauseMs` of silence (or when the learner presses Stop).
 let liveFinal = '';
+let liveAlt2 = '';          // 2nd/3rd-best hearings, per final segment
+let liveAlt3 = '';
 let liveInterim = '';
 let liveBubble = null;      // { div, bubble, controls } while speaking
 let silenceTimer = null;
@@ -255,9 +257,14 @@ function setupSpeechRecognition() {
     recognition.lang = 'sv-SE';
     recognition.interimResults = true;
     recognition.continuous = true;
+    // Learner accents confuse the recognizer; alternative hearings are
+    // passed along to the tutor so it can work out what was meant.
+    recognition.maxAlternatives = 3;
 
     recognition.onstart = () => {
         liveFinal = '';
+        liveAlt2 = '';
+        liveAlt3 = '';
         liveInterim = '';
         updateState(STATE.LISTENING);
         // Longer initial window: give the learner time to start talking.
@@ -268,8 +275,13 @@ function setupSpeechRecognition() {
         liveInterim = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const r = event.results[i];
-            if (r.isFinal) liveFinal += r[0].transcript;
-            else liveInterim += r[0].transcript;
+            if (r.isFinal) {
+                liveFinal += r[0].transcript;
+                liveAlt2 += (r[1] ? r[1].transcript : r[0].transcript);
+                liveAlt3 += (r[2] ? r[2].transcript : r[0].transcript);
+            } else {
+                liveInterim += r[0].transcript;
+            }
         }
         updateLiveBubble();
         armSilenceTimer();
@@ -277,15 +289,21 @@ function setupSpeechRecognition() {
 
     recognition.onend = () => {
         clearTimeout(silenceTimer);
-        const text = (liveFinal + ' ' + liveInterim).replace(/\s+/g, ' ').trim();
+        const clean = (s) => s.replace(/\s+/g, ' ').trim();
+        const text = clean(liveFinal + ' ' + liveInterim);
+        const alts = [clean(liveAlt2), clean(liveAlt3)]
+            .filter(a => a && a.toLowerCase() !== text.toLowerCase())
+            .filter((a, i, arr) => arr.indexOf(a) === i);
         liveFinal = '';
+        liveAlt2 = '';
+        liveAlt3 = '';
         liveInterim = '';
         if (currentState === STATE.LISTENING) updateState(STATE.IDLE);
 
         if (text) {
             finalizeLiveBubble(text);
             stopRecorder();
-            runTurn(text);
+            runTurn(text, alts);
         } else {
             discardLiveBubble();
             attachAudioTarget = null;
@@ -357,7 +375,7 @@ async function handleUserSpeech(text) {
 // Sends one already-transcribed utterance to the tutor. Kept separate from
 // handleUserSpeech so error notes can offer a Retry that doesn't require
 // the learner to say the sentence again.
-async function runTurn(text) {
+async function runTurn(text, alts = []) {
     if (currentState === STATE.PROCESSING) return;
     updateState(STATE.PROCESSING);
 
@@ -370,17 +388,22 @@ async function runTurn(text) {
     }
 
     try {
-        const turn = await askTutor(text);
+        const turn = await askTutor(text, alts);
         if (turn.correction) addCorrectionCard(turn.correction);
         addBotMessage({ sv: turn.reply_sv, en: turn.reply_en, words: turn.words || [] });
     } catch (err) {
-        handleApiError(err, text);
+        handleApiError(err, () => runTurn(text, alts));
         updateState(STATE.IDLE);
     }
 }
 
-async function askTutor(userText) {
-    history.push({ role: "user", content: userText });
+async function askTutor(userText, alts = []) {
+    // The bubble shows only the primary transcript, but the model also gets
+    // the recognizer's alternative hearings — invaluable for learner accents.
+    const apiText = alts.length
+        ? `${userText}\n\n[speech recognition also heard: ${alts.map(a => `"${a}"`).join(' / ')}]`
+        : userText;
+    history.push({ role: "user", content: apiText });
 
     const request = {
         model: settings.model,
@@ -436,9 +459,8 @@ async function askTutor(userText) {
     }
 }
 
-function handleApiError(err, retryText) {
+function handleApiError(err, retry = null) {
     console.error(err);
-    const retry = retryText ? () => runTurn(retryText) : null;
     if (AnthropicSDK && err instanceof AnthropicSDK.AuthenticationError) {
         addSystemNote("Your API key was rejected — check it in Settings.");
         openSettings();
@@ -791,6 +813,27 @@ function closeSettings() {
 
 function wireUi() {
     document.getElementById('voice-trigger').addEventListener('click', startListening);
+
+    // Keyboard fallback for when recognition just won't cooperate.
+    const typeRow = document.getElementById('type-row');
+    const typeInput = document.getElementById('type-input');
+    const sendTyped = () => {
+        const text = typeInput.value.trim();
+        if (!text || currentState === STATE.PROCESSING) return;
+        typeInput.value = '';
+        stopSpeaking();
+        addUserMessage(text);
+        attachAudioTarget = null; // typed — there is no recording
+        runTurn(text);
+    };
+    document.getElementById('type-toggle').addEventListener('click', () => {
+        typeRow.classList.toggle('hidden');
+        if (!typeRow.classList.contains('hidden')) typeInput.focus();
+    });
+    document.getElementById('type-send').addEventListener('click', sendTyped);
+    typeInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendTyped();
+    });
     document.getElementById('settings-btn').addEventListener('click', openSettings);
     document.getElementById('banner-settings-link').addEventListener('click', openSettings);
 
