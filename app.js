@@ -22,7 +22,9 @@ const DEFAULT_SETTINGS = {
     apiKey: '', model: 'claude-opus-5', level: 'beginner',
     voiceURI: '', rate: 0.95,
     // Optional human-quality TTS via ElevenLabs; falls back to browser TTS.
-    elevenKey: '', elevenVoiceId: '21m00Tcm4TlvDq8ikWAM'
+    elevenKey: '', elevenVoiceId: '21m00Tcm4TlvDq8ikWAM',
+    // Silence (ms) before an utterance is considered finished; 0 = only on Stop.
+    pauseMs: 3000
 };
 
 let currentState = STATE.IDLE;
@@ -198,36 +200,78 @@ function populateVoiceSelect() {
         : '';
 }
 
+// Continuous listening: the browser's own endpointing cuts learners off at
+// the first thinking-pause, so we accumulate results ourselves and only send
+// after `settings.pauseMs` of silence (or when the learner presses Stop).
+let liveFinal = '';
+let liveInterim = '';
+let liveBubble = null;      // { div, bubble, controls } while speaking
+let silenceTimer = null;
+
 function setupSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return;
 
     recognition = new SpeechRecognition();
     recognition.lang = 'sv-SE';
-    recognition.interimResults = false;
-    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.continuous = true;
 
-    recognition.onstart = () => updateState(STATE.LISTENING);
-    recognition.onend = () => {
-        stopRecorder();
-        if (currentState === STATE.LISTENING) updateState(STATE.IDLE);
+    recognition.onstart = () => {
+        liveFinal = '';
+        liveInterim = '';
+        updateState(STATE.LISTENING);
+        // Longer initial window: give the learner time to start talking.
+        if (settings.pauseMs > 0) armSilenceTimer(Math.max(8000, settings.pauseMs));
     };
 
     recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        handleUserSpeech(transcript);
+        liveInterim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const r = event.results[i];
+            if (r.isFinal) liveFinal += r[0].transcript;
+            else liveInterim += r[0].transcript;
+        }
+        updateLiveBubble();
+        armSilenceTimer();
+    };
+
+    recognition.onend = () => {
+        clearTimeout(silenceTimer);
+        const text = (liveFinal + ' ' + liveInterim).replace(/\s+/g, ' ').trim();
+        liveFinal = '';
+        liveInterim = '';
+        if (currentState === STATE.LISTENING) updateState(STATE.IDLE);
+
+        if (text) {
+            finalizeLiveBubble(text);
+            stopRecorder();
+            runTurn(text);
+        } else {
+            discardLiveBubble();
+            attachAudioTarget = null;
+            stopRecorder();
+        }
     };
 
     recognition.onerror = (event) => {
         console.error("Speech error", event.error);
-        stopRecorder();
-        updateState(STATE.IDLE);
         if (event.error === 'no-speech') {
             addBotMessage("Jag hörde ingenting. Försök igen!", 'sv', { speak: false });
         } else if (event.error === 'not-allowed') {
             addSystemNote("Microphone access was denied — allow it in the browser to practice speaking.");
         }
+        // onend fires after onerror and handles state + any partial text.
     };
+}
+
+function armSilenceTimer(ms = settings.pauseMs) {
+    clearTimeout(silenceTimer);
+    if (settings.pauseMs > 0) {
+        silenceTimer = setTimeout(() => {
+            try { recognition.stop(); } catch { /* already stopped */ }
+        }, ms);
+    }
 }
 
 // --- Core Logic ---
@@ -246,16 +290,23 @@ function updateState(state) {
 
     text.innerText = state;
 
+    const listenHint = document.getElementById('listening-hint');
     if (state === STATE.LISTENING) {
         trigger.className = 'main-btn btn-stop listening';
         triggerText.innerText = 'Stop speaking';
         procText.classList.add('hidden');
+        listenHint.textContent = settings.pauseMs > 0
+            ? `Take your time — sends after ${(settings.pauseMs / 1000).toFixed(1).replace('.0', '')}s of silence, or press Stop.`
+            : 'Take your time — sends only when you press Stop.';
+        listenHint.classList.remove('hidden');
     } else if (state === STATE.PROCESSING) {
         procText.classList.remove('hidden');
+        listenHint.classList.add('hidden');
     } else {
         trigger.className = 'main-btn btn-start';
         triggerText.innerText = 'Start speaking';
         procText.classList.add('hidden');
+        listenHint.classList.add('hidden');
     }
 }
 
@@ -409,7 +460,8 @@ function addSystemNote(text, retry) {
 
 function addUserMessage(text) {
     const div = el('div', 'message user');
-    div.appendChild(el('div', 'bubble', text));
+    const bubble = el('div', 'bubble', text);
+    div.appendChild(bubble);
     const controls = el('div', 'controls-row');
     div.appendChild(controls);
     appendToFlow(div);
@@ -420,6 +472,48 @@ function addUserMessage(text) {
         const url = URL.createObjectURL(blob);
         controls.appendChild(smallButton('▶ Play my recording', () => new Audio(url).play()));
     };
+    return { div, bubble, controls };
+}
+
+// Live transcript bubble shown while the learner is still speaking.
+function updateLiveBubble() {
+    const text = (liveFinal + ' ' + liveInterim).replace(/\s+/g, ' ').trim();
+    if (!text) return;
+    if (!liveBubble) {
+        const div = el('div', 'message user live');
+        const bubble = el('div', 'bubble', text);
+        div.appendChild(bubble);
+        const controls = el('div', 'controls-row');
+        div.appendChild(controls);
+        appendToFlow(div);
+        liveBubble = { div, bubble, controls };
+    } else {
+        liveBubble.bubble.textContent = text;
+        const flow = document.getElementById('conversation-flow');
+        flow.scrollTop = flow.scrollHeight;
+    }
+}
+
+function finalizeLiveBubble(text) {
+    if (!liveBubble) {
+        addUserMessage(text);
+        return;
+    }
+    const { div, bubble, controls } = liveBubble;
+    liveBubble = null;
+    div.classList.remove('live');
+    bubble.textContent = text;
+    attachAudioTarget = (blob) => {
+        const url = URL.createObjectURL(blob);
+        controls.appendChild(smallButton('▶ Play my recording', () => new Audio(url).play()));
+    };
+}
+
+function discardLiveBubble() {
+    if (liveBubble) {
+        liveBubble.div.remove();
+        liveBubble = null;
+    }
 }
 
 function addBotMessage(text, lang = 'sv', { speak = true } = {}) {
@@ -575,6 +669,7 @@ function openSettings() {
     document.getElementById('model-select').value = settings.model;
     document.getElementById('level-select').value = settings.level;
     document.getElementById('rate-select').value = String(settings.rate);
+    document.getElementById('pause-select').value = String(settings.pauseMs);
     document.getElementById('eleven-key-input').value = settings.elevenKey;
     document.getElementById('eleven-voice-input').value = settings.elevenVoiceId;
     populateVoiceSelect();
@@ -603,6 +698,8 @@ function wireUi() {
         settings.elevenKey = document.getElementById('eleven-key-input').value.trim();
         settings.elevenVoiceId = document.getElementById('eleven-voice-input').value.trim()
             || DEFAULT_SETTINGS.elevenVoiceId;
+        settings.pauseMs = parseInt(document.getElementById('pause-select').value, 10);
+        if (Number.isNaN(settings.pauseMs)) settings.pauseMs = DEFAULT_SETTINGS.pauseMs;
         ttsCache.clear();
         saveSettings();
         initClient();
@@ -639,7 +736,8 @@ function wireUi() {
 window.__tutor = {
     say: handleUserSpeech,
     getState: () => currentState,
-    getHistory: () => history
+    getHistory: () => history,
+    _rec: () => recognition
 };
 
 // Start the app

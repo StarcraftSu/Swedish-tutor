@@ -46,6 +46,7 @@
             <div id="processing-text" class="hidden" style="color: var(--text-muted); font-size: 0.9rem; font-style: italic;">
                 Thinking about your answer...
             </div>
+            <div id="listening-hint" class="hidden" style="color: var(--text-muted); font-size: 0.9rem;"></div>
         </div>
     </div>
 
@@ -88,6 +89,16 @@
                 System Settings → Accessibility → Spoken Content → System voice → Manage Voices →
                 Swedish → download an Enhanced/Premium voice, then pick it here.
             </p>
+            <label>
+                Thinking pause (silence before your sentence is sent)
+                <select id="pause-select">
+                    <option value="1500">Short (1.5s)</option>
+                    <option value="3000">Normal (3s)</option>
+                    <option value="5000">Long (5s)</option>
+                    <option value="8000">Very long (8s)</option>
+                    <option value="0">Only send when I press Stop</option>
+                </select>
+            </label>
             <label>
                 Speech speed
                 <select id="rate-select">
