@@ -113,7 +113,9 @@ function initClient() {
     if (AnthropicSDK && settings.apiKey) {
         client = new AnthropicSDK({
             apiKey: settings.apiKey,
-            dangerouslyAllowBrowser: true
+            dangerouslyAllowBrowser: true,
+            // Absorb transient 429/5xx/529 blips (SDK default is 2 retries).
+            maxRetries: 4
         });
     } else {
         client = null;
@@ -211,6 +213,14 @@ function updateState(state) {
 
 async function handleUserSpeech(text) {
     addUserMessage(text);
+    await runTurn(text);
+}
+
+// Sends one already-transcribed utterance to the tutor. Kept separate from
+// handleUserSpeech so error notes can offer a Retry that doesn't require
+// the learner to say the sentence again.
+async function runTurn(text) {
+    if (currentState === STATE.PROCESSING) return;
     updateState(STATE.PROCESSING);
 
     if (!client) {
@@ -227,7 +237,7 @@ async function handleUserSpeech(text) {
         if (turn.correction) addCorrectionCard(turn.correction);
         addBotMessage(turn.reply, turn.reply_lang);
     } catch (err) {
-        handleApiError(err);
+        handleApiError(err, text);
         updateState(STATE.IDLE);
     }
 }
@@ -283,17 +293,20 @@ async function askTutor(userText) {
     }
 }
 
-function handleApiError(err) {
+function handleApiError(err, retryText) {
     console.error(err);
+    const retry = retryText ? () => runTurn(retryText) : null;
     if (AnthropicSDK && err instanceof AnthropicSDK.AuthenticationError) {
         addSystemNote("Your API key was rejected — check it in Settings.");
         openSettings();
     } else if (AnthropicSDK && err instanceof AnthropicSDK.RateLimitError) {
-        addSystemNote("Rate limited by the API — wait a moment and try again.");
+        addSystemNote("Rate limited by the API — wait a moment and try again.", retry);
+    } else if (AnthropicSDK && err instanceof AnthropicSDK.APIError && (err.status === 529 || err.status === 503)) {
+        addSystemNote("The AI service is temporarily overloaded — it usually recovers in seconds. Retry, or switch model in ⚙️ Settings.", retry);
     } else if (AnthropicSDK && err instanceof AnthropicSDK.APIError) {
-        addSystemNote(`The tutor service returned an error (${err.status}). Try again.`);
+        addSystemNote(`The tutor service returned an error (${err.status}).`, retry);
     } else {
-        addSystemNote("Could not reach the tutor service — check your connection and try again.");
+        addSystemNote("Could not reach the tutor service — check your connection.", retry);
     }
 }
 
@@ -333,8 +346,17 @@ function appendToFlow(node) {
     flow.scrollTop = flow.scrollHeight;
 }
 
-function addSystemNote(text) {
-    appendToFlow(el('div', 'system-note', text));
+function addSystemNote(text, retry) {
+    const note = el('div', 'system-note', text);
+    if (retry) {
+        const btn = smallButton('🔄 Retry', () => {
+            btn.disabled = true;
+            retry();
+        });
+        btn.style.margin = '0.4rem auto 0';
+        note.appendChild(btn);
+    }
+    appendToFlow(note);
 }
 
 function addUserMessage(text) {
