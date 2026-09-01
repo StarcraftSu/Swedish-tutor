@@ -133,6 +133,53 @@ header {
     font-style: italic;
 }
 
+/* Bilingual bot bubble: tappable Swedish words + English translation */
+.w {
+    cursor: pointer;
+    border-bottom: 1px dotted #94a3b8;
+    border-radius: 2px;
+}
+
+.w:hover, .w-active {
+    background: #fef08a;
+}
+
+.en-line {
+    margin-top: 0.45rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid rgba(100, 116, 139, 0.2);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.gloss-pop {
+    position: fixed;
+    z-index: 200;
+    background: #1e293b;
+    color: #f8fafc;
+    padding: 0.45rem 0.7rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    max-width: 320px;
+}
+
+.gloss-sv { font-weight: 600; }
+.gloss-en { color: #a5b4fc; }
+
+.gloss-pop .gloss-hear {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 0.9rem;
+    padding: 0 0.2rem;
+}
+
+.gloss-pop .gloss-hear:hover { background: rgba(255,255,255,0.15); }
+
 .system-note {
     align-self: center;
     font-size: 0.85rem;
