@@ -4,212 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SvenskaTutor - Voice Practice</title>
-    <style>
-        :root {
-            --bg: #f8fafc;
-            --panel: #ffffff;
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --accent: #ef4444;
-            --text-main: #1e293b;
-            --text-muted: #64748b;
-            --border: #e2e8f0;
-            --bot-bubble: #f1f5f9;
-            --user-bubble: #dbeafe;
-        }
-
-        html, body {
-            height: 100%;
-            margin: 0;
-            overflow: hidden;
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: var(--bg);
-            color: var(--text-main);
-        }
-
-        .app-container {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            width: min(1100px, 92vw);
-            margin-inline: auto;
-            max-height: 100vh;
-        }
-
-        header {
-            padding: 1rem 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .status-badge {
-            padding: 0.4rem 0.8rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .status-ready { background: #dcfce7; color: #166534; }
-        .status-listening { background: #fee2e2; color: #991b1b; animation: pulse 1.5s infinite; }
-        .status-processing { background: #fef9c3; color: #854d0e; }
-        .status-speaking { background: #dbeafe; color: #1e40af; }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.6; }
-            100% { opacity: 1; }
-        }
-
-        #conversation-flow {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1.5rem 0;
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-            scrollbar-width: thin;
-        }
-
-        .message {
-            display: flex;
-            flex-direction: column;
-            max-width: 80%;
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .message.bot { align-items: flex-start; }
-        .message.user { align-items: flex-end; }
-
-        .bubble {
-            padding: 0.8rem 1.2rem;
-            border-radius: 1rem;
-            line-height: 1.5;
-            position: relative;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-
-        .bot .bubble { background: var(--bot-bubble); border-bottom-left-radius: 0; }
-        .user .bubble { background: var(--user-bubble); border-bottom-right-radius: 0; }
-
-        .controls-row {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 0.5rem;
-            align-items: center;
-        }
-
-        .btn-small {
-            background: white;
-            border: 1px solid var(--border);
-            padding: 0.3rem 0.6rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            transition: background 0.2s;
-        }
-
-        .btn-small:hover { background: #f8fafc; }
-
-        .correction-card {
-            background: #fffbeb;
-            border: 1px solid #fef3c7;
-            border-radius: 12px;
-            padding: 1rem;
-            margin-top: 0.5rem;
-            width: 100%;
-            max-width: 600px;
-            display: grid;
-            grid-template-columns: max-content 1fr;
-            gap: 0.75rem;
-            align-items: start;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-        }
-
-        .correction-label {
-            font-weight: bold;
-            font-size: 0.8rem;
-            color: #92400e;
-            text-transform: uppercase;
-            padding-top: 2px;
-        }
-
-        .correction-content {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .highlight {
-            background: #fef08a;
-            padding: 0 2px;
-            border-radius: 2px;
-            font-weight: 600;
-        }
-
-        .footer-controls {
-            padding: 2rem 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-            border-top: 1px solid var(--border);
-            background: var(--bg);
-        }
-
-        .main-btn {
-            width: 240px;
-            height: 60px;
-            border-radius: 30px;
-            border: none;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .btn-start { background: var(--primary); color: white; }
-        .btn-start:hover { background: var(--primary-hover); }
-        .btn-stop { background: var(--accent); color: white; }
-        .btn-stop:hover { background: #dc2626; }
-
-        .mic-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: white;
-        }
-
-        .listening .mic-indicator {
-            animation: blink 1s infinite;
-        }
-
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
-        .hidden { display: none !important; }
-    </style>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🇸🇪</text></svg>">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
@@ -219,11 +15,23 @@
                 <span style="font-size: 1.5rem">🇸🇪</span>
                 <h1 style="font-size: 1.2rem; margin:0">SvenskaTutor</h1>
             </div>
-            <div id="status-badge" class="status-badge status-ready">
-                <div class="mic-indicator"></div>
-                <span id="status-text">Ready</span>
+            <div class="header-right">
+                <div id="status-badge" class="status-badge status-ready">
+                    <div class="mic-indicator"></div>
+                    <span id="status-text">Ready</span>
+                </div>
+                <button id="settings-btn" class="icon-btn" title="Settings">⚙️</button>
             </div>
         </header>
+
+        <div id="demo-banner" class="banner hidden">
+            Demo mode — the tutor only knows a few canned phrases.
+            <a id="banner-settings-link">Add your Anthropic API key</a> to talk to a real AI tutor.
+        </div>
+        <div id="voice-banner" class="banner hidden">
+            No Swedish text-to-speech voice found in this browser, so replies will sound wrong.
+            On macOS: System Settings → Accessibility → Spoken Content → System voice → Manage voices → add a Swedish voice.
+        </div>
 
         <div id="conversation-flow">
             <!-- Messages injected here -->
@@ -235,255 +43,45 @@
                 <span id="trigger-text">Start speaking</span>
             </button>
             <div id="processing-text" class="hidden" style="color: var(--text-muted); font-size: 0.9rem; font-style: italic;">
-                Analyzing your answer...
+                Thinking about your answer...
             </div>
         </div>
     </div>
 
-    <script>
-        // --- Configuration & State ---
-        const STATE = {
-            IDLE: 'Ready',
-            LISTENING: 'Listening...',
-            PROCESSING: 'Processing...',
-            SPEAKING: 'Bot Speaking'
-        };
+    <div id="settings-overlay" class="overlay hidden">
+        <div class="settings-panel">
+            <h2>⚙️ Settings</h2>
+            <label>
+                Anthropic API key
+                <input type="password" id="api-key-input" placeholder="sk-ant-..." autocomplete="off">
+            </label>
+            <p class="hint">
+                Stored only in this browser (localStorage) and sent only to api.anthropic.com.
+                Get one at console.anthropic.com. Without a key the app runs in canned demo mode.
+            </p>
+            <label>
+                Model
+                <select id="model-select">
+                    <option value="claude-opus-5">Claude Opus 5 — most capable</option>
+                    <option value="claude-sonnet-5">Claude Sonnet 5 — balanced</option>
+                    <option value="claude-haiku-4-5">Claude Haiku 4.5 — fastest & cheapest</option>
+                </select>
+            </label>
+            <label>
+                My Swedish level
+                <select id="level-select">
+                    <option value="beginner">Beginner (nybörjare)</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                </select>
+            </label>
+            <div class="settings-actions">
+                <button id="reset-chat-btn" class="btn-small">🗑 Reset conversation</button>
+                <button id="save-settings-btn" class="save-btn">Save</button>
+            </div>
+        </div>
+    </div>
 
-        let currentState = STATE.IDLE;
-        let recognition = null;
-        let synth = window.speechSynthesis;
-        let swedishVoice = null;
-
-        const botKnowledge = {
-            greetings: {
-                keywords: ['hej', 'hallå', 'hello', 'hi'],
-                responses: ["Hej! Hur mår du idag?", "Hallå! Vad kul att se dig. Hur går det med svenskan?"],
-                lang: 'sv'
-            },
-            meaning: {
-                keywords: ['vad betyder', 'what does', 'mean', 'betyder'],
-                responses: ["Det betyder 'What does it mean' på engelska. Jag kan förklara mer om du vill!", "I can help you with translations! Just tell me which word you're unsure about."],
-                lang: 'en'
-            },
-            hobbies: {
-                keywords: ['hobby', 'gör', 'do', 'intresse'],
-                responses: ["Vad gillar du att göra på din fritid?", "Jag älskar att lära ut språk! Vad är dina intressen?"],
-                lang: 'sv'
-            },
-            default: {
-                responses: ["Intressant! Berätta mer om det.", "Jag förstår. Kan du förklara det lite mer detaljerat på svenska?"],
-                lang: 'sv'
-            }
-        };
-
-        // --- Initialization ---
-        function init() {
-            setupSpeechRecognition();
-            loadVoices();
-
-            // Initial Bot Greeting
-            setTimeout(() => {
-                addBotMessage("Hej! Jag är din svensklärare. Vill du öva på att prata idag? (Hi! I'm your Swedish teacher. Do you want to practice speaking today?)");
-            }, 500);
-        }
-
-        function loadVoices() {
-            const voices = synth.getVoices();
-            swedishVoice = voices.find(v => v.lang.startsWith('sv'));
-            // If not found immediately, wait for event
-            if (!swedishVoice) {
-                synth.onvoiceschanged = loadVoices;
-            }
-        }
-
-        function setupSpeechRecognition() {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                alert("Your browser does not support Speech Recognition. Please use Chrome.");
-                return;
-            }
-            recognition = new SpeechRecognition();
-            recognition.lang = 'sv-SE';
-            recognition.interimResults = false;
-            recognition.continuous = false;
-
-            recognition.onstart = () => updateState(STATE.LISTENING);
-            recognition.onend = () => {
-                if (currentState === STATE.LISTENING) updateState(STATE.IDLE);
-            };
-
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                handleUserSpeech(transcript);
-            };
-
-            recognition.onerror = (event) => {
-                console.error("Speech error", event.error);
-                updateState(STATE.IDLE);
-                if (event.error === 'no-speech') {
-                    addBotMessage("Jag hörde ingenting. Försök igen!");
-                }
-            };
-        }
-
-        // --- Core Logic ---
-        function updateState(state) {
-            currentState = state;
-            const badge = document.getElementById('status-badge');
-            const text = document.getElementById('status-text');
-            const trigger = document.getElementById('voice-trigger');
-            const triggerText = document.getElementById('trigger-text');
-            const procText = document.getElementById('processing-text');
-
-            badge.className = 'status-badge ' +
-                (state === STATE.IDLE ? 'status-ready' :
-                 state === STATE.LISTENING ? 'status-listening' :
-                 state === STATE.PROCESSING ? 'status-processing' : 'status-speaking');
-
-            text.innerText = state;
-
-            if (state === STATE.LISTENING) {
-                trigger.className = 'main-btn btn-stop';
-                triggerText.innerText = 'Stop speaking';
-                procText.classList.add('hidden');
-            } else if (state === STATE.IDLE) {
-                trigger.className = 'main-btn btn-start';
-                triggerText.innerText = 'Start speaking';
-                procText.classList.add('hidden');
-            } else if (state === STATE.PROCESSING) {
-                procText.classList.remove('hidden');
-            }
-        }
-
-        function handleUserSpeech(text) {
-            updateState(STATE.PROCESSING);
-            addUserMessage(text);
-
-            // Simulate "Analysis" delay
-            setTimeout(() => {
-                const response = generateBotResponse(text);
-
-                // Randomly simulate a pronunciation error for demo purposes
-                const hasError = Math.random() > 0.6 && text.length > 5;
-                if (hasError) {
-                    const words = text.split(' ');
-                    const targetWord = words[Math.floor(Math.random() * words.length)];
-                    createCorrection(text, targetWord);
-                }
-
-                addBotMessage(response.text, response.lang);
-            }, 1200);
-        }
-
-        function generateBotResponse(input) {
-            const lowerInput = input.toLowerCase();
-
-            // Check for English support requests
-            if (lowerInput.includes('what does') || lowerInput.includes('betyder') || lowerInput.includes('mean')) {
-                return { text: botKnowledge.meaning.responses[0], lang: 'en' };
-            }
-
-            // Check for Swedish keywords
-            for (let key in botKnowledge) {
-                if (botKnowledge[key].keywords && botKnowledge[key].keywords.some(k => lowerInput.includes(k))) {
-                    const res = botKnowledge[key].responses;
-                    return { text: res[Math.floor(Math.random() * res.length)], lang: botKnowledge[key].lang };
-                }
-            }
-
-            return { text: botKnowledge.default.responses[Math.floor(Math.random() * botKnowledge.default.responses.length)], lang: 'sv' };
-        }
-
-        // --- UI Components ---
-        function addUserMessage(text) {
-            const flow = document.getElementById('conversation-flow');
-            const div = document.createElement('div');
-            div.className = 'message user';
-            div.innerHTML = `
-                <div class="bubble">${text}</div>
-                <div class="controls-row">
-                    <button class="btn-small" onclick="replayUser('${text}')">▶ Play my recording</button>
-                </div>
-            `;
-            flow.appendChild(div);
-            flow.scrollTop = flow.scrollHeight;
-        }
-
-        function addBotMessage(text, lang = 'sv') {
-            const flow = document.getElementById('conversation-flow');
-            const div = document.createElement('div');
-            div.className = 'message bot';
-            div.innerHTML = `
-                <div class="bubble">${text}</div>
-                <div class="controls-row">
-                    <button class="btn-small" onclick="speakText('${text.replace(/'/g, "\\'")}', '${lang}')">🔊 Play</button>
-                </div>
-            `;
-            flow.appendChild(div);
-            flow.scrollTop = flow.scrollHeight;
-
-            speakText(text, lang);
-        }
-
-        function createCorrection(originalText, word) {
-            const flow = document.getElementById('conversation-flow');
-            const card = document.createElement('div');
-            card.className = 'correction-card';
-
-            const highlightedText = originalText.replace(word, `<span class="highlight">${word}</span>`);
-
-            card.innerHTML = `
-                <div class="correction-label">Pronunciation</div>
-                <div class="correction-content">
-                    <div>You said: <i>"${highlightedText}"</i></div>
-                    <div style="font-size: 0.9rem; color: var(--text-muted)">
-                        The word <b>"${word}"</b> could be clearer. Try to focus on the vowel sound.
-                    </div>
-                    <div class="controls-row">
-                        <button class="btn-small" onclick="speakText('${word.replace(/'/g, "\\'")}', 'sv')">🔊 Hear correct pronunciation</button>
-                        <button class="btn-small" onclick="startListening()">🔄 Try again</button>
-                    </div>
-                </div>
-            `;
-            flow.appendChild(card);
-            flow.scrollTop = flow.scrollHeight;
-        }
-
-        // --- Audio Actions ---
-        function speakText(text, lang) {
-            synth.cancel();
-            updateState(STATE.SPEAKING);
-
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = lang === 'sv' ? 'sv-SE' : 'en-US';
-
-            if (lang === 'sv' && swedishVoice) {
-                utterance.voice = swedishVoice;
-            }
-
-            utterance.onend = () => updateState(STATE.IDLE);
-            synth.speak(utterance);
-        }
-
-        function replayUser(text) {
-            // In a real app, we'd play the actual audio blob.
-            // Here we simulate by using a slightly different voice or just TTS.
-            speakText(text, 'sv');
-        }
-
-        function startListening() {
-            if (currentState === STATE.LISTENING) {
-                recognition.stop();
-            } else {
-                recognition.start();
-            }
-        }
-
-        // --- Event Listeners ---
-        document.getElementById('voice-trigger').addEventListener('click', startListening);
-
-        // Start the app
-        window.onload = init;
-    </script>
+    <script type="module" src="app.js"></script>
 </body>
 </html>
