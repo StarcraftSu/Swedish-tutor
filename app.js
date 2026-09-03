@@ -197,6 +197,15 @@ const DEMO_BOT = {
     }
 };
 
+// Built-in sentences for pronunciation practice when no API key is set.
+const PRACTICE_SENTENCES = [
+    { sv: "Jag skulle vilja ha en kaffe, tack.", en: "I would like a coffee, please." },
+    { sv: "Var ligger närmaste tunnelbanestation?", en: "Where is the nearest metro station?" },
+    { sv: "Kan du prata lite långsammare?", en: "Can you speak a little more slowly?" },
+    { sv: "Hur mycket kostar den här?", en: "How much does this one cost?" },
+    { sv: "Jag lär mig svenska på jobbet.", en: "I am learning Swedish at work." }
+];
+
 // --- Settings ---
 function loadSettings() {
     try {
@@ -321,6 +330,7 @@ let liveAlt3 = '';
 let liveInterim = '';
 let liveBubble = null;      // { div, bubble, controls } while speaking
 let silenceTimer = null;
+let repeatTarget = null;    // active listen-and-repeat exercise, or null
 
 function setupSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -372,6 +382,18 @@ function setupSpeechRecognition() {
         liveAlt3 = '';
         liveInterim = '';
         if (currentState === STATE.LISTENING) updateState(STATE.IDLE);
+
+        if (repeatTarget) {
+            discardLiveBubble();
+            if (text) {
+                handleRepeatResult(text, alts); // sets attachAudioTarget for the attempt row
+            } else {
+                attachAudioTarget = null;
+                repeatTarget.liveLine.textContent = '';
+            }
+            stopRecorder();
+            return;
+        }
 
         if (text) {
             finalizeLiveBubble(text);
@@ -620,6 +642,10 @@ function addUserMessage(text) {
 function updateLiveBubble() {
     const text = (liveFinal + ' ' + liveInterim).replace(/\s+/g, ' ').trim();
     if (!text) return;
+    if (repeatTarget) {
+        repeatTarget.liveLine.textContent = '🎙 ' + text;
+        return;
+    }
     if (!liveBubble) {
         const div = el('div', 'message user live');
         const bubble = el('div', 'bubble', text);
@@ -686,10 +712,129 @@ function addBotMessage(msg, { speak = true } = {}) {
     const controls = el('div', 'controls-row');
     controls.appendChild(smallButton('🔊 Play', () => speakText(sv, 'sv')));
     if (en) controls.appendChild(smallButton('🔊 English', () => speakText(en, 'en')));
+    controls.appendChild(smallButton('🎤 Repeat', () => startRepeatExercise({ sv, en })));
     div.appendChild(controls);
     appendToFlow(div);
 
     if (speak) speakText(sv, 'sv');
+}
+
+// --- Listen & repeat (pronunciation practice) ---
+// A word "came through" if the recognizer heard it. Green = in the primary
+// transcript, yellow = only in an alternative hearing, red = not recognized.
+const normToken = (w) => w.toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
+
+function scoreAgainstTarget(target, heard, alts = []) {
+    const tokens = target.split(/\s+/).filter(Boolean);
+    const t = tokens.map(normToken);
+    const h = heard.split(/\s+/).map(normToken).filter(Boolean);
+
+    // Longest-common-subsequence alignment between target and heard words.
+    const dp = Array.from({ length: t.length + 1 }, () => new Array(h.length + 1).fill(0));
+    for (let i = t.length - 1; i >= 0; i--) {
+        for (let j = h.length - 1; j >= 0; j--) {
+            dp[i][j] = t[i] === h[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+        }
+    }
+    const status = new Array(t.length).fill('miss');
+    let i = 0, j = 0;
+    while (i < t.length && j < h.length) {
+        if (t[i] === h[j]) { status[i] = 'hit'; i++; j++; }
+        else if (dp[i + 1][j] >= dp[i][j + 1]) i++;
+        else j++;
+    }
+    const altWords = new Set(alts.flatMap(a => a.split(/\s+/).map(normToken)));
+    for (let k = 0; k < t.length; k++) {
+        if (status[k] === 'miss' && altWords.has(t[k])) status[k] = 'partial';
+    }
+    const hits = status.filter(s => s === 'hit').length;
+    const partials = status.filter(s => s === 'partial').length;
+    return { tokens, status, hits, partials, total: t.length };
+}
+
+function startRepeatExercise(target) {
+    stopSpeaking();
+    exitRepeat();
+
+    const card = el('div', 'repeat-card');
+    card.appendChild(el('div', 'repeat-label', 'Repeat'));
+    const content = el('div', 'repeat-content');
+    content.appendChild(el('div', 'repeat-sentence', target.sv));
+    if (target.en) content.appendChild(el('div', 'en-line', target.en));
+
+    const controls = el('div', 'controls-row');
+    controls.appendChild(smallButton('🔊 Listen', () => speakText(target.sv, 'sv')));
+    controls.appendChild(smallButton('🎤 Repeat it', startListening));
+    controls.appendChild(smallButton('✕ Done', exitRepeat));
+    content.appendChild(controls);
+
+    const liveLine = el('div', 'attempt-live');
+    content.appendChild(liveLine);
+    const attemptsEl = el('div', 'attempts');
+    content.appendChild(attemptsEl);
+
+    card.appendChild(content);
+    appendToFlow(card);
+
+    repeatTarget = { sv: target.sv, en: target.en, card, attemptsEl, liveLine };
+    speakText(target.sv, 'sv');
+}
+
+function exitRepeat() {
+    if (repeatTarget) {
+        repeatTarget.card.classList.add('repeat-done');
+        repeatTarget = null;
+    }
+}
+
+function handleRepeatResult(heard, alts) {
+    const rt = repeatTarget;
+    rt.liveLine.textContent = '';
+    const { tokens, status, hits, partials, total } = scoreAgainstTarget(rt.sv, heard, alts);
+
+    const row = el('div', 'attempt-row');
+    const line = el('div', 'attempt-target');
+    tokens.forEach((tok, i) => {
+        if (i > 0) line.appendChild(document.createTextNode(' '));
+        line.appendChild(el('span', 'rw-' + status[i], tok));
+    });
+    row.appendChild(line);
+    const score = `${hits}/${total} words clear` + (partials ? `, ${partials} close` : '');
+    row.appendChild(el('div', 'attempt-heard', `Heard: "${heard}" — ${score}`));
+    const controls = el('div', 'controls-row');
+    controls.appendChild(smallButton('🎤 Try again', startListening));
+    row.appendChild(controls);
+    rt.attemptsEl.appendChild(row);
+
+    const flow = document.getElementById('conversation-flow');
+    flow.scrollTop = flow.scrollHeight;
+
+    // The learner's real audio for this attempt, once the recorder finishes.
+    attachAudioTarget = (blob) => {
+        const url = URL.createObjectURL(blob);
+        const btn = smallButton('▶ My attempt', () => new Audio(url).play());
+        controls.insertBefore(btn, controls.firstChild);
+    };
+}
+
+// 🎯 button: ask the tutor for one fresh sentence to practice.
+async function requestPracticeSentence() {
+    if (currentState === STATE.PROCESSING) return;
+    if (!client) {
+        startRepeatExercise(pick(PRACTICE_SENTENCES));
+        return;
+    }
+    updateState(STATE.PROCESSING);
+    try {
+        const turn = await askTutor(
+            "Give me ONE new short Swedish sentence to practice pronunciation out loud, suited to my level and different from anything we already used. Put just the sentence in reply_sv and its English translation in reply_en. words = its gloss, correction = null."
+        );
+        startRepeatExercise({ sv: turn.reply_sv, en: turn.reply_en });
+    } catch (err) {
+        handleApiError(err);
+    } finally {
+        if (currentState === STATE.PROCESSING) updateState(STATE.IDLE);
+    }
 }
 
 // --- Word gloss popover ---
@@ -910,6 +1055,7 @@ function wireUi() {
         if (e.key === 'Enter') sendTyped();
     });
     document.getElementById('settings-btn').addEventListener('click', openSettings);
+    document.getElementById('practice-btn').addEventListener('click', requestPracticeSentence);
     document.getElementById('cost-chip').addEventListener('click', showCostDetails);
     document.getElementById('banner-settings-link').addEventListener('click', openSettings);
 
@@ -968,7 +1114,8 @@ window.__tutor = {
     say: handleUserSpeech,
     getState: () => currentState,
     getHistory: () => history,
-    _rec: () => recognition
+    _rec: () => recognition,
+    _repeat: { start: startRepeatExercise, active: () => !!repeatTarget, exit: exitRepeat }
 };
 
 // Start the app

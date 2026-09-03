@@ -273,6 +273,71 @@ header {
     font-weight: 600;
 }
 
+/* Listen & repeat practice card */
+.repeat-card {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 0.5rem;
+    width: 100%;
+    max-width: 600px;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.75rem;
+    align-items: start;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+
+.repeat-card.repeat-done { opacity: 0.75; }
+
+.repeat-label {
+    font-weight: bold;
+    font-size: 0.8rem;
+    color: #1e40af;
+    text-transform: uppercase;
+    padding-top: 2px;
+}
+
+.repeat-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.repeat-sentence { font-weight: 600; }
+
+.attempt-live {
+    font-style: italic;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.attempt-live:empty, .attempts:empty { display: none; }
+
+.attempts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.attempt-row {
+    border-top: 1px dashed #bfdbfe;
+    padding-top: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.attempt-heard {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.rw-hit { background: #dcfce7; padding: 0 3px; border-radius: 3px; }
+.rw-partial { background: #fef9c3; padding: 0 3px; border-radius: 3px; }
+.rw-miss { background: #fee2e2; padding: 0 3px; border-radius: 3px; text-decoration: underline wavy #ef4444 1px; }
+
 .footer-controls {
     padding: 2rem 0;
     display: flex;
