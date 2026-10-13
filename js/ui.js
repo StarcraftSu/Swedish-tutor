@@ -30,6 +30,13 @@ export function scrollFlowToEnd() {
 
 export const clearFlow = () => flow().replaceChildren();
 
+// The translation line(s) under a Swedish sentence: English, plus Chinese
+// when that setting is on.
+export function appendTranslations(parent, { en, zh }) {
+    if (en) parent.appendChild(el('div', 'en-line', en));
+    if (zh) parent.appendChild(el('div', 'zh-line', zh));
+}
+
 export function addSystemNote(text, retry) {
     const note = el('div', 'system-note', text);
     if (retry) {
@@ -45,7 +52,7 @@ export function addSystemNote(text, retry) {
 }
 
 // Shows the Swedish exactly as written (punctuation included) and makes each
-// glossed word or expression tappable. Gloss entries ({sv, meaning}) are
+// glossed word or expression tappable. Gloss entries ({sv, en}) are
 // matched in order; one that can't be found close to where the previous one
 // ended is skipped rather than allowed to swallow a chunk of the text.
 export function buildSvLine(sv, words = []) {
@@ -60,7 +67,7 @@ export function buildSvLine(sv, words = []) {
         const span = el('span', 'w', m.text);
         span.addEventListener('click', (e) => {
             e.stopPropagation();
-            showGloss(span, m.text, w.meaning);
+            showGloss(span, m.text, w.en);
         });
         line.appendChild(span);
         cursor = m.index + m.text.length;
@@ -89,12 +96,12 @@ export function initGloss() {
     flow().addEventListener('scroll', hideGloss);
 }
 
-function showGloss(anchor, sv, meaning) {
+function showGloss(anchor, sv, en) {
     hideGloss();
     glossPop = el('div', 'gloss-pop');
     glossPop.appendChild(el('span', 'gloss-sv', sv));
     glossPop.appendChild(document.createTextNode(' = '));
-    glossPop.appendChild(el('span', 'gloss-en', meaning));
+    glossPop.appendChild(el('span', 'gloss-en', en));
     const hear = smallButton('🔊', (e) => { e.stopPropagation(); speakText(sv); });
     hear.classList.add('gloss-hear');
     glossPop.appendChild(hear);

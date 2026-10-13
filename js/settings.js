@@ -4,20 +4,13 @@ const SETTINGS_KEY = 'svenskatutor_settings';
 
 export const DEFAULT_SETTINGS = {
     apiKey: '', model: 'claude-opus-5-5', level: 'beginner',
-    // Language of translations, word glosses and explanations.
-    lang: 'en',
+    // Translations and glosses are English; this adds a Chinese line too.
+    alsoChinese: false,
     voiceURI: '', rate: 0.95,
     // Optional human-quality Swedish TTS via ElevenLabs; falls back to browser TTS.
     elevenKey: '', elevenVoiceId: '21m00Tcm4TlvDq8ikWAM',
     // Silence (ms) before an utterance is considered finished; 0 = only on Stop.
     pauseMs: 3000
-};
-
-// `name` goes into the prompts, `label` onto buttons, `voice` picks the
-// text-to-speech voice that reads a translation aloud.
-export const TRANSLATION_LANGS = {
-    en: { name: 'English', label: 'English', voice: 'en-US' },
-    zh: { name: 'Simplified Chinese', label: '中文', voice: 'zh-CN' }
 };
 
 // Saved settings may still name a model choice that has since been replaced.
@@ -38,7 +31,10 @@ function loadSettings() {
         loaded = { ...DEFAULT_SETTINGS };
     }
     loaded.model = MODEL_UPGRADES[loaded.model] || loaded.model;
-    if (!TRANSLATION_LANGS[loaded.lang]) loaded.lang = DEFAULT_SETTINGS.lang;
+    // Briefly there was a Chinese-instead-of-English option; Chinese is now
+    // only ever shown alongside the English.
+    if (loaded.lang === 'zh') loaded.alsoChinese = true;
+    delete loaded.lang;
     return loaded;
 }
 
@@ -47,5 +43,3 @@ export function saveSettings() {
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     } catch { /* private mode etc. — settings just won't persist */ }
 }
-
-export const translationLang = () => TRANSLATION_LANGS[settings.lang] || TRANSLATION_LANGS.en;

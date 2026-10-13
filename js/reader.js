@@ -1,5 +1,5 @@
 import { STATE, getState, setState } from './state.js';
-import { el, smallButton, appendToFlow, addSystemNote, buildSvLine } from './ui.js';
+import { el, smallButton, appendToFlow, addSystemNote, buildSvLine, appendTranslations } from './ui.js';
 import { speakText, stopSpeaking, speechGeneration } from './speech.js';
 import { startListening, stopListening } from './mic.js';
 import { hasClient, explainText } from './claude.js';
@@ -94,7 +94,7 @@ function splitSentences(text) {
         .filter(Boolean);
 }
 
-// sentences: [{ sv, translation?, words?, note? }]
+// sentences: [{ sv, en?, zh?, words?, note? }]
 function addReaderCard(sentences) {
     const card = el('div', 'reader-card');
     const head = el('div', 'reader-head');
@@ -112,7 +112,7 @@ function addReaderCard(sentences) {
     sentences.forEach((s, i) => {
         const row = el('div', 'reader-sentence');
         row.appendChild(buildSvLine(s.sv, s.words));
-        if (s.translation) row.appendChild(el('div', 'en-line', s.translation));
+        appendTranslations(row, s);
         if (s.note) row.appendChild(el('div', 'reader-note', '💡 ' + s.note));
 
         const item = {

@@ -40,7 +40,7 @@ export function openSettings() {
     $('api-key-input').value = settings.apiKey;
     $('model-select').value = settings.model;
     $('level-select').value = settings.level;
-    $('lang-select').value = settings.lang;
+    $('chinese-select').value = String(settings.alsoChinese);
     $('rate-select').value = String(settings.rate);
     $('pause-select').value = String(settings.pauseMs);
     $('eleven-key-input').value = settings.elevenKey;
@@ -76,7 +76,7 @@ export function initSettingsPanel({ onSaved, onReset }) {
             apiKey: $('api-key-input').value.trim(),
             model: $('model-select').value,
             level: $('level-select').value,
-            lang: $('lang-select').value,
+            alsoChinese: $('chinese-select').value === 'true',
             pauseMs: Number.isNaN(pauseMs) ? DEFAULT_SETTINGS.pauseMs : pauseMs
         });
         saveSettings();

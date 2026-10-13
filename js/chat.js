@@ -1,6 +1,5 @@
-import { translationLang } from './settings.js';
 import { STATE, getState, setState } from './state.js';
-import { el, smallButton, appendToFlow, scrollFlowToEnd, clearFlow, buildSvLine } from './ui.js';
+import { el, smallButton, appendToFlow, scrollFlowToEnd, clearFlow, buildSvLine, appendTranslations } from './ui.js';
 import { speakText, stopSpeaking } from './speech.js';
 import { startListening } from './mic.js';
 import { hasClient, askTutor, resetHistory } from './claude.js';
@@ -62,7 +61,7 @@ export async function runTurn(text, alts = []) {
             return;
         }
         if (turn.correction) addCorrectionCard(turn.correction);
-        addBotMessage({ sv: turn.reply_sv, translation: turn.reply_translation, words: turn.words || [] });
+        addBotMessage({ sv: turn.reply_sv, en: turn.reply_en, zh: turn.reply_zh, words: turn.words || [] });
     } catch (err) {
         reportApiError(err, () => runTurn(text, alts));
         setState(STATE.IDLE);
@@ -130,19 +129,18 @@ function addUserMessage(text) {
 }
 
 // Bot messages are bilingual: Swedish on top (each word tappable for its
-// meaning), the translation underneath.
-export function addBotMessage({ sv, translation = '', words = [] }, { speak = true } = {}) {
-    const lang = translationLang();
+// English meaning), the English (and optional Chinese) translation underneath.
+export function addBotMessage({ sv, en = '', zh = '', words = [] }, { speak = true } = {}) {
     const div = el('div', 'message bot');
     const bubble = el('div', 'bubble');
     bubble.appendChild(buildSvLine(sv, words));
-    if (translation) bubble.appendChild(el('div', 'en-line', translation));
+    appendTranslations(bubble, { en, zh });
     div.appendChild(bubble);
 
     const controls = el('div', 'controls-row');
     controls.appendChild(smallButton('🔊 Play', () => speakText(sv)));
-    if (translation) controls.appendChild(smallButton(`🔊 ${lang.label}`, () => speakText(translation, lang.voice)));
-    controls.appendChild(smallButton('🎤 Repeat', () => startRepeatExercise({ sv, translation })));
+    if (en) controls.appendChild(smallButton('🔊 English', () => speakText(en, 'en-US')));
+    controls.appendChild(smallButton('🎤 Repeat', () => startRepeatExercise({ sv, en, zh })));
     div.appendChild(controls);
     appendToFlow(div);
 

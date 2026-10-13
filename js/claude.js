@@ -1,7 +1,5 @@
-import { settings, translationLang } from './settings.js';
-import {
-    tutorSystemPrompt, TUTOR_OUTPUT_FORMAT, pasteSystemPrompt, PASTE_OUTPUT_FORMAT
-} from './prompts.js';
+import { settings } from './settings.js';
+import { tutorSystemPrompt, tutorOutputFormat, pasteSystemPrompt, pasteOutputFormat } from './prompts.js';
 import { recordUsage } from './cost.js';
 
 // The official Anthropic SDK, loaded as an ES module. If the CDN is
@@ -43,7 +41,7 @@ const FALLBACK_MODELS = new Set(['claude-opus-5-5', 'claude-sonnet-5-5']);
 // - Thinking is always on for these models; effort "low" keeps it short.
 //   The tutor history replays the model's thinking blocks, which are only
 //   valid while everything before them is unchanged. If the level or
-//   translation language (and with it the system prompt) changes mid-chat,
+//   Chinese translation setting (and with it the system prompt) changes mid-chat,
 //   or the model does, the stale blocks are dropped instead of failing.
 // - Opus and Sonnet opt into server-side refusal fallbacks, so a rare
 //   safety decline is retried on another model in the same call.
@@ -76,10 +74,10 @@ export async function askTutor(userText, alts = []) {
         response = await createMessage({
             model: settings.model,
             max_tokens: 4000,
-            system: tutorSystemPrompt(settings.level, translationLang().name),
+            system: tutorSystemPrompt(settings.level, settings.alsoChinese),
             messages: history,
             cache_control: { type: "ephemeral" },
-            output_config: { effort: "low", format: TUTOR_OUTPUT_FORMAT }
+            output_config: { effort: "low", format: tutorOutputFormat(settings.alsoChinese) }
         });
     } catch (err) {
         history.pop();
@@ -109,9 +107,9 @@ export async function explainText(text) {
     const response = await createMessage({
         model: settings.model,
         max_tokens: 16000,
-        system: pasteSystemPrompt(translationLang().name),
+        system: pasteSystemPrompt(settings.alsoChinese),
         messages: [{ role: "user", content: `<text>\n${text}\n</text>` }],
-        output_config: { effort: "low", format: PASTE_OUTPUT_FORMAT }
+        output_config: { effort: "low", format: pasteOutputFormat(settings.alsoChinese) }
     });
     recordUsage(response);
 

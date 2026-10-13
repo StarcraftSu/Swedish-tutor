@@ -1,4 +1,4 @@
-import { el, smallButton, appendToFlow, addSystemNote } from './ui.js';
+import { el, smallButton, appendToFlow, addSystemNote, appendTranslations } from './ui.js';
 import { speakText, stopSpeaking } from './speech.js';
 import { startListening } from './mic.js';
 import { STATE, getState, setState } from './state.js';
@@ -111,14 +111,14 @@ function showAttempt(heard, alts) {
 }
 
 // A practice card of its own at the end of the conversation.
-export function startRepeatExercise({ sv, translation }) {
+export function startRepeatExercise({ sv, en, zh }) {
     stopSpeaking();
 
     const card = el('div', 'repeat-card');
     card.appendChild(el('div', 'repeat-label', 'Repeat'));
     const content = el('div', 'repeat-content');
     content.appendChild(el('div', 'repeat-sentence', sv));
-    if (translation) content.appendChild(el('div', 'en-line', translation));
+    appendTranslations(content, { en, zh });
 
     const controls = el('div', 'controls-row');
     controls.appendChild(smallButton('🔊 Listen', () => speakText(sv)));
@@ -148,7 +148,7 @@ export async function requestPracticeSentence() {
     setState(STATE.PROCESSING, 'Finding a sentence for you...');
     try {
         const { turn } = await askTutor(PRACTICE_REQUEST);
-        if (turn) startRepeatExercise({ sv: turn.reply_sv, translation: turn.reply_translation });
+        if (turn) startRepeatExercise({ sv: turn.reply_sv, en: turn.reply_en, zh: turn.reply_zh });
         else addSystemNote("Couldn't get a practice sentence — try again.");
     } catch (err) {
         reportApiError(err, requestPracticeSentence);
