@@ -205,6 +205,7 @@ header {
 
 .controls-row {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     margin-top: 0.5rem;
     align-items: center;
@@ -338,6 +339,63 @@ header {
 .rw-partial { background: #fef9c3; padding: 0 3px; border-radius: 3px; }
 .rw-miss { background: #fee2e2; padding: 0 3px; border-radius: 3px; text-decoration: underline wavy #ef4444 1px; }
 
+/* Paste & translate: a reader card, one row per sentence */
+.reader-card {
+    background: #f5f3ff;
+    border: 1px solid #ddd6fe;
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    margin-top: 0.5rem;
+    width: 100%;
+    max-width: 680px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    animation: fadeIn 0.3s ease-out;
+}
+
+.reader-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-bottom: 0.25rem;
+}
+
+.reader-head .controls-row { margin-top: 0; }
+
+.reader-label {
+    font-weight: bold;
+    font-size: 0.8rem;
+    color: #5b21b6;
+    text-transform: uppercase;
+}
+
+.reader-sentence {
+    padding: 0.7rem 0.6rem;
+    margin: 0 -0.6rem;
+    border-left: 3px solid transparent;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.reader-sentence + .reader-sentence { border-top: 1px dashed #ddd6fe; }
+.reader-sentence .sv-line { font-size: 1.05rem; line-height: 1.6; }
+.reader-sentence.playing { background: rgba(139, 92, 246, 0.08); }
+.reader-sentence.shadowing { border-left-color: #8b5cf6; background: rgba(139, 92, 246, 0.05); }
+
+.reader-note {
+    margin-top: 0.35rem;
+    font-size: 0.85rem;
+    color: #6d28d9;
+}
+
+.reader-sentence .attempt-live,
+.reader-sentence .attempts { margin-top: 0.5rem; }
+.reader-sentence .attempt-row { border-top-color: #ddd6fe; }
+
 .footer-controls {
     padding: 2rem 0;
     display: flex;
@@ -451,6 +509,11 @@ header {
     align-items: center;
 }
 
+@media (max-width: 480px) {
+    .main-btn { width: 190px; }
+    .footer-controls { padding: 1.25rem 0; }
+}
+
 .type-row {
     display: flex;
     gap: 0.5rem;
@@ -464,6 +527,24 @@ header {
     border: 1px solid var(--border);
     border-radius: 8px;
     font-family: inherit;
+}
+
+.paste-row {
+    display: flex;
+    gap: 0.5rem;
+    width: min(640px, 92vw);
+    align-items: flex-end;
+}
+
+.paste-row textarea {
+    flex: 1;
+    font-size: 0.95rem;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    resize: vertical;
+    max-height: 40vh;
 }
 
 .hint {
